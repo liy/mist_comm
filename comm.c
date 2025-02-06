@@ -81,8 +81,9 @@ static void task_loop() {
         else {
             ESP_LOGI(TAG, "Sending data to "MACSTR", len: %d", MAC2STR(task->mac_addr), task->buffer_size);
             // Send the message
-            if (esp_now_send(task->mac_addr, task->buffer, task->buffer_size) != ESP_OK) {
-                ESP_LOGE(TAG, "Failed to send message");
+            esp_err_t err = esp_now_send(task->mac_addr, task->buffer, task->buffer_size);
+            if (err != ESP_OK) {
+                ESP_LOGE(TAG, "Failed to send message to "MACSTR": %s", MAC2STR(task->mac_addr), esp_err_to_name(err));
             }
         }
         free(task->buffer);
