@@ -61,3 +61,5 @@ typedef bool (*comm_recv_msg_cb_t)(const CommTask_t* task);
 void comm_register_recv_msg_cb(comm_recv_msg_cb_t handler);
 
 void comm_deregister_recv_msg_cb(void);
+
+bool comm_is_peer_exist(const uint8_t *peer_mac_addr);

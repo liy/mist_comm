@@ -175,8 +175,7 @@ esp_err_t comm_add_peer(const uint8_t *peer_mac_addr, bool encrypt) {
         ESP_LOGE(TAG, "Malloc peer information fail");
         vSemaphoreDelete(s_espnow_queue);
         esp_now_deinit();
-        // return ESP_FAIL;
-        return ESP_
+        return ESP_FAIL;
     }
     memset(peer, 0, sizeof(esp_now_peer_info_t));
     peer->channel = CONFIG_ESPNOW_CHANNEL;
