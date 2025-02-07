@@ -27,7 +27,7 @@ static const uint8_t COMM_BROADCAST_MAC_ADDR[ESP_NOW_ETH_ALEN] = { 0xFF, 0xFF, 0
 typedef struct {
     bool is_inbound;
     // Mac address could be NULL, therefore cannot be declared as an array
-    const uint8_t* mac_addr;
+    uint8_t* mac_addr;
     uint8_t *buffer;
     size_t buffer_size;
 } CommTask_t;
