@@ -16,16 +16,16 @@
 
 #define ESPNOW_MAXDELAY 512
 
-static const char *TAG = "Mist";
+static const char *TAG = "Comm";
 
 // Queue for sending and receiving data
 static QueueHandle_t s_espnow_queue = NULL;
 
 // Register a new message handler
-static message_handler_t s_message_handler;
+static comm_recv_msg_cb_t s_recv_msg_cb;
 
-static task_t* create_task(const uint8_t* buffer, const int64_t buffer_size, const uint8_t mac_addr[ESP_NOW_ETH_ALEN], bool is_inbound) {
-    task_t* task = malloc(sizeof(task_t));
+static CommTask_t* create_task(const uint8_t* buffer, const int64_t buffer_size, const uint8_t mac_addr[ESP_NOW_ETH_ALEN], bool is_inbound) {
+    CommTask_t* task = malloc(sizeof(CommTask_t));
     if (task == NULL) {
         ESP_LOGE(TAG, "Malloc task fail");
         return NULL;
@@ -40,12 +40,12 @@ static task_t* create_task(const uint8_t* buffer, const int64_t buffer_size, con
     return task;
 }
 
-void register_message_handler(message_handler_t handler) {
-    s_message_handler = handler;
+void comm_register_recv_msg_cb(comm_recv_msg_cb_t cb) {
+    s_recv_msg_cb = cb;
 }
 
-void deregister_message_handler(void) {
-    s_message_handler = NULL;
+void comm_deregister_recv_msg_cb(void) {
+    s_recv_msg_cb = NULL;
 }
 
 static void espnow_send_cb(const uint8_t *mac_addr, esp_now_send_status_t status) {
@@ -57,7 +57,7 @@ static void espnow_recv_cb(const esp_now_recv_info_t *recv_info, const uint8_t* 
     // uint8_t *des_addr = recv_info->des_addr;
     ESP_LOGI(TAG, "Receive data from "MACSTR", len: %d", MAC2STR(mac_addr), buffer_size);
 
-    task_t* task = create_task(buffer, buffer_size, mac_addr, true);
+    CommTask_t* task = create_task(buffer, buffer_size, mac_addr, true);
     // Send the structure to the queue, the structure will be cloned.
     // The receiver will be responsible for freeing the data, so it is safe to send pointer into the queue
     if (xQueueSend(s_espnow_queue, &task, ESPNOW_MAXDELAY) != pdTRUE) {
@@ -66,12 +66,12 @@ static void espnow_recv_cb(const esp_now_recv_info_t *recv_info, const uint8_t* 
 }
 
 static void task_loop() {
-    task_t* task;
+    CommTask_t* task;
     while (xQueueReceive(s_espnow_queue, &task, portMAX_DELAY) == pdTRUE) {
         // Parse the incoming message
         if (task->is_inbound) {
-            if(s_message_handler != NULL) {
-                if (!s_message_handler(task)) {
+            if(s_recv_msg_cb != NULL) {
+                if (!s_recv_msg_cb(task)) {
                     ESP_LOGE(TAG, "Message handler failed");
                 }
             } else {
@@ -104,7 +104,7 @@ static void task_loop() {
 }
 
 static esp_err_t init_queue() {
-    s_espnow_queue = xQueueCreate(ESPNOW_QUEUE_SIZE, sizeof(task_t*));
+    s_espnow_queue = xQueueCreate(ESPNOW_QUEUE_SIZE, sizeof(CommTask_t*));
     if (s_espnow_queue == NULL) {
         ESP_LOGE(TAG, "Error creating the ESPNOW queue");
     } else {
@@ -129,8 +129,8 @@ static esp_err_t init_queue() {
     return ESP_OK;
 }
 
-esp_err_t send(const uint8_t* buffer, const int64_t buffer_size, const uint8_t des_mac[ESP_NOW_ETH_ALEN]) {
-    task_t* task = create_task(buffer, buffer_size, des_mac, false);
+esp_err_t comm_send(const uint8_t* buffer, const int64_t buffer_size, const uint8_t des_mac[ESP_NOW_ETH_ALEN]) {
+    CommTask_t* task = create_task(buffer, buffer_size, des_mac, false);
     if (task == NULL) {
         ESP_LOGE(TAG, "Create task fail");
         return ESP_FAIL;
@@ -146,8 +146,8 @@ esp_err_t send(const uint8_t* buffer, const int64_t buffer_size, const uint8_t d
     return ESP_OK;
 }
 
-esp_err_t broadcast(const uint8_t* buffer, const int64_t buffer_size) {
-    return send(buffer, buffer_size, BROADCAST_MAC_ADDR);
+esp_err_t comm_broadcast(const uint8_t* buffer, const int64_t buffer_size) {
+    return comm_send(buffer, buffer_size, COMM_BROADCAST_MAC_ADDR);
 }
 
 esp_err_t comm_init() {
@@ -168,7 +168,7 @@ void comm_deinit()
     esp_now_deinit();
 }
 
-esp_err_t add_peer(const uint8_t *peer_mac_addr, bool encrypt) {
+esp_err_t comm_add_peer(const uint8_t *peer_mac_addr, bool encrypt) {
     // Add broadcast peer information to peer list
     esp_now_peer_info_t *peer = malloc(sizeof(esp_now_peer_info_t));
     if (peer == NULL) {
@@ -195,7 +195,7 @@ esp_err_t add_peer(const uint8_t *peer_mac_addr, bool encrypt) {
 }
 
 // Function to remove a peer
-esp_err_t remove_peer(const uint8_t *peer_addr) {
+esp_err_t comm_remove_peer(const uint8_t *peer_addr) {
     const esp_err_t err = esp_now_del_peer(peer_addr);
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "Failed to remove peer: %s", esp_err_to_name(err));

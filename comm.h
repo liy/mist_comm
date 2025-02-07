@@ -21,43 +21,43 @@
 #define ESPNOW_QUEUE_SIZE           6
 
 // Broadcast MAC address
-static const uint8_t BROADCAST_MAC_ADDR[ESP_NOW_ETH_ALEN] = { 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF };
-#define IS_BROADCAST_ADDR(addr) (memcmp(addr, BROADCAST_MAC_ADDR, ESP_NOW_ETH_ALEN) == 0)
+static const uint8_t COMM_BROADCAST_MAC_ADDR[ESP_NOW_ETH_ALEN] = { 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF };
+#define COMM_IS_BROADCAST_ADDR(addr) (memcmp(addr, BROADCAST_MAC_ADDR, ESP_NOW_ETH_ALEN) == 0)
 
 typedef struct {
     bool is_inbound;
     uint8_t mac_addr[ESP_NOW_ETH_ALEN];
     uint8_t *buffer;
     size_t buffer_size;
-} task_t;
+} CommTask_t;
 
 esp_err_t comm_init(void);
 
 void comm_deinit(void);
 
 // Send data to a specific MAC address
-esp_err_t send(const uint8_t* buffer, const int64_t buffer_size, const uint8_t des_mac[ESP_NOW_ETH_ALEN]);
+esp_err_t comm_send(const uint8_t* buffer, const int64_t buffer_size, const uint8_t des_mac[ESP_NOW_ETH_ALEN]);
 
 // Broadcast data to all peers
-esp_err_t broadcast(const uint8_t* buffer, const int64_t buffer_size);
+esp_err_t comm_broadcast(const uint8_t* buffer, const int64_t buffer_size);
 
-esp_err_t add_peer(const uint8_t *peer_mac_addr, bool encrypt);
+esp_err_t comm_add_peer(const uint8_t *peer_mac_addr, bool encrypt);
 
-esp_err_t remove_peer(const uint8_t *peer_mac_addr);
+esp_err_t comm_remove_peer(const uint8_t *peer_mac_addr);
 
 /**
- * @typedef message_handler_t
+ * @typedef recv_msg_cb_t
  * @brief A function pointer type for handling messages.
  *
- * This type defines a function pointer that takes a constant pointer to a task_t
+ * This type defines a function pointer that takes a constant pointer to a CommTask_t
  * structure and returns a boolean value indicating the success or failure of the
  * message handling operation.
  *
- * @param task A constant pointer to a task_t structure representing the task to be handled.
+ * @param task A constant pointer to a CommTask_t structure representing the task to be handled.
  * @return A boolean value indicating the success (true) or failure (false) of the message handling.
  */
-typedef bool (*message_handler_t)(const task_t* task);
+typedef bool (*comm_recv_msg_cb_t)(const CommTask_t* task);
 
-void register_message_handler(message_handler_t handler);
+void comm_register_recv_msg_cb(comm_recv_msg_cb_t handler);
 
-void deregister_message_handler(void);
+void comm_deregister_recv_msg_cb(void);
