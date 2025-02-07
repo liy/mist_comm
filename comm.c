@@ -182,12 +182,14 @@ esp_err_t add_peer(const uint8_t *peer_mac_addr, bool encrypt) {
     peer->ifidx = ESPNOW_WIFI_IF;
     // Data encryption configuration
     peer->encrypt = encrypt;
-    memcpy(peer->peer_addr, BROADCAST_MAC_ADDR, ESP_NOW_ETH_ALEN);
+    memcpy(peer->peer_addr, peer_mac_addr, ESP_NOW_ETH_ALEN);
     const esp_err_t err = esp_now_add_peer(peer);
     if(err != ESP_OK) {
         ESP_LOGE(TAG, "Failed to add peer: %s", esp_err_to_name(err));
     }
     free(peer);
+
+    ESP_LOGI(TAG, "Added peer: "MACSTR, MAC2STR(peer_mac_addr));
 
     return err;
 }
