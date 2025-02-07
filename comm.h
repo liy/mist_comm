@@ -26,7 +26,8 @@ static const uint8_t COMM_BROADCAST_MAC_ADDR[ESP_NOW_ETH_ALEN] = { 0xFF, 0xFF, 0
 
 typedef struct {
     bool is_inbound;
-    uint8_t mac_addr[ESP_NOW_ETH_ALEN];
+    // Mac address could be NULL, therefore cannot be declared as an array
+    const uint8_t* mac_addr;
     uint8_t *buffer;
     size_t buffer_size;
 } CommTask_t;
@@ -36,12 +37,22 @@ esp_err_t comm_init(void);
 void comm_deinit(void);
 
 // Send data to a specific MAC address
-esp_err_t comm_send(const uint8_t* buffer, const int64_t buffer_size, const uint8_t des_mac[ESP_NOW_ETH_ALEN]);
+esp_err_t comm_send(const uint8_t* buffer, const int64_t buffer_size, const uint8_t* des_mac);
 
 // Broadcast data to all peers
 esp_err_t comm_broadcast(const uint8_t* buffer, const int64_t buffer_size);
 
 esp_err_t comm_add_peer(const uint8_t *peer_mac_addr, bool encrypt);
+
+/**
+ * @brief Get the list of peers.
+ *
+ * @param include_broadcast Whether to include the broadcast address in the list.
+ * @param peer_num Pointer to store the number of peers.
+ * @param peers Pointer to store the dynamically allocated array of MAC addresses. The caller is responsible for freeing the memory.
+ * @return ESP_OK on success, ESP_FAIL on error.
+ */
+esp_err_t comm_get_peers(bool include_broadcast, uint16_t* peer_num, uint8_t** peers);
 
 esp_err_t comm_remove_peer(const uint8_t *peer_mac_addr);
 

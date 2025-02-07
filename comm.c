@@ -24,7 +24,7 @@ static QueueHandle_t s_espnow_queue = NULL;
 // Register a new message handler
 static comm_recv_msg_cb_t s_recv_msg_cb;
 
-static CommTask_t* create_task(const uint8_t* buffer, const int64_t buffer_size, const uint8_t mac_addr[ESP_NOW_ETH_ALEN], bool is_inbound) {
+static CommTask_t* create_task(const uint8_t* buffer, const int64_t buffer_size, const uint8_t* mac_addr, bool is_inbound) {
     CommTask_t* task = malloc(sizeof(CommTask_t));
     if (task == NULL) {
         ESP_LOGE(TAG, "Malloc task fail");
@@ -35,7 +35,11 @@ static CommTask_t* create_task(const uint8_t* buffer, const int64_t buffer_size,
     task->buffer = malloc(buffer_size);
     memcpy(task->buffer, buffer, buffer_size);
     task->buffer_size = buffer_size;
-    memcpy(task->mac_addr, mac_addr, ESP_NOW_ETH_ALEN);
+    if (mac_addr == NULL) {
+        task->mac_addr = NULL;
+    } else {
+        memcpy(task->mac_addr, mac_addr, ESP_NOW_ETH_ALEN);
+    }
 
     return task;
 }
@@ -50,16 +54,16 @@ void comm_deregister_recv_msg_cb(void) {
 
 static void espnow_send_cb(const uint8_t *mac_addr, esp_now_send_status_t status) {
     if (status == ESP_NOW_SEND_SUCCESS) {
-        ESP_LOGI(TAG, "Send callback data to "MACSTR" succeed: %d", MAC2STR(mac_addr), status);
+        ESP_LOGI(TAG, "Send to "MACSTR" succeed: %d", MAC2STR(mac_addr), status);
     } else {
-        ESP_LOGE(TAG, "Send callback data to "MACSTR" failed: %d", MAC2STR(mac_addr), status);
+        ESP_LOGE(TAG, "Send to "MACSTR" failed: %d", MAC2STR(mac_addr), status);
     }
 }
 
 static void espnow_recv_cb(const esp_now_recv_info_t *recv_info, const uint8_t* buffer, int buffer_size) {
     uint8_t *mac_addr = recv_info->src_addr;
     // uint8_t *des_addr = recv_info->des_addr;
-    ESP_LOGI(TAG, "Receive data from "MACSTR", buffer size: %d", MAC2STR(mac_addr), buffer_size);
+    ESP_LOGW(TAG, "comm_send "MACSTR", buffer size: %d", MAC2STR(mac_addr), buffer_size);
 
     CommTask_t* task = create_task(buffer, buffer_size, mac_addr, true);
     // Send the structure to the queue, the structure will be cloned.
@@ -74,7 +78,7 @@ static void task_loop() {
     while (xQueueReceive(s_espnow_queue, &task, portMAX_DELAY) == pdTRUE) {
         // Parse the incoming message
         if (task->is_inbound) {
-            if(s_recv_msg_cb != NULL) {
+            if (s_recv_msg_cb != NULL) {
                 if (s_recv_msg_cb(task) != ESP_OK) {
                     ESP_LOGE(TAG, "Receive message callback failed");
                 }
@@ -83,11 +87,21 @@ static void task_loop() {
             }
         }
         else {
-            ESP_LOGI(TAG, "Send data to "MACSTR", buffer size: %d", MAC2STR(task->mac_addr), task->buffer_size);
+            if (task->mac_addr == NULL) {
+                ESP_LOGI(TAG, "Send data to all peers, buffer size: %d", task->buffer_size);
+            } else {
+                ESP_LOGI(TAG, "Send data to "MACSTR", buffer size: %d", MAC2STR(task->mac_addr), task->buffer_size);
+            }
+            
             // Send the message
             esp_err_t err = esp_now_send(task->mac_addr, task->buffer, task->buffer_size);
+
             if (err != ESP_OK) {
-                ESP_LOGE(TAG, "Send message to "MACSTR" failed: %s", MAC2STR(task->mac_addr), esp_err_to_name(err));
+                if (task->mac_addr == NULL) {
+                    ESP_LOGE(TAG, "Send message to all peers failed: %s", esp_err_to_name(err));
+                } else {
+                    ESP_LOGE(TAG, "Send message to "MACSTR" failed: %s", MAC2STR(task->mac_addr), esp_err_to_name(err));
+                }
             }
         }
         free(task->buffer);
@@ -133,13 +147,13 @@ static esp_err_t init_queue() {
     return ESP_OK;
 }
 
-esp_err_t comm_send(const uint8_t* buffer, const int64_t buffer_size, const uint8_t des_mac[ESP_NOW_ETH_ALEN]) {
+esp_err_t comm_send(const uint8_t* buffer, const int64_t buffer_size, const uint8_t* des_mac) {
     CommTask_t* task = create_task(buffer, buffer_size, des_mac, false);
     if (task == NULL) {
         ESP_LOGE(TAG, "Create task fail");
         return ESP_FAIL;
     }
-
+    
     // Send the structure to the queue, the structure will be cloned.
     // The receiver will be responsible for freeing the data, so it is safe to send pointer into the queue
     if (xQueueSend(s_espnow_queue, &task, ESPNOW_MAXDELAY) != pdTRUE) {
