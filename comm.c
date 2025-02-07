@@ -75,8 +75,8 @@ static void task_loop() {
         // Parse the incoming message
         if (task->is_inbound) {
             if(s_recv_msg_cb != NULL) {
-                if (!s_recv_msg_cb(task)) {
-                    ESP_LOGE(TAG, "Message handler failed");
+                if (s_recv_msg_cb(task) != ESP_OK) {
+                    ESP_LOGE(TAG, "Receive message callback failed");
                 }
             } else {
                 ESP_LOGW(TAG, "No message handler registered");

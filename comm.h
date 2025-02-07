@@ -56,7 +56,7 @@ esp_err_t comm_remove_peer(const uint8_t *peer_mac_addr);
  * @param task A constant pointer to a CommTask_t structure representing the task to be handled.
  * @return A boolean value indicating the success (true) or failure (false) of the message handling.
  */
-typedef bool (*comm_recv_msg_cb_t)(const CommTask_t* task);
+typedef esp_err_t (*comm_recv_msg_cb_t)(const CommTask_t* task);
 
 void comm_register_recv_msg_cb(comm_recv_msg_cb_t handler);
 
