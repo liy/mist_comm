@@ -49,13 +49,17 @@ void comm_deregister_recv_msg_cb(void) {
 }
 
 static void espnow_send_cb(const uint8_t *mac_addr, esp_now_send_status_t status) {
-    ESP_LOGI(TAG, "Send callback, data to "MACSTR", status: %d", MAC2STR(mac_addr), status);
+    if (status == ESP_NOW_SEND_SUCCESS) {
+        ESP_LOGI(TAG, "Send callback data to "MACSTR" succeed: %d", MAC2STR(mac_addr), status);
+    } else {
+        ESP_LOGE(TAG, "Send callback data to "MACSTR" failed: %d", MAC2STR(mac_addr), status);
+    }
 }
 
 static void espnow_recv_cb(const esp_now_recv_info_t *recv_info, const uint8_t* buffer, int buffer_size) {
     uint8_t *mac_addr = recv_info->src_addr;
     // uint8_t *des_addr = recv_info->des_addr;
-    ESP_LOGI(TAG, "Receive data from "MACSTR", len: %d", MAC2STR(mac_addr), buffer_size);
+    ESP_LOGI(TAG, "Receive data from "MACSTR", buffer size: %d", MAC2STR(mac_addr), buffer_size);
 
     CommTask_t* task = create_task(buffer, buffer_size, mac_addr, true);
     // Send the structure to the queue, the structure will be cloned.
@@ -79,11 +83,11 @@ static void task_loop() {
             }
         }
         else {
-            ESP_LOGI(TAG, "Sending data to "MACSTR", len: %d", MAC2STR(task->mac_addr), task->buffer_size);
+            ESP_LOGI(TAG, "Send data to "MACSTR", buffer size: %d", MAC2STR(task->mac_addr), task->buffer_size);
             // Send the message
             esp_err_t err = esp_now_send(task->mac_addr, task->buffer, task->buffer_size);
             if (err != ESP_OK) {
-                ESP_LOGE(TAG, "Failed to send message to "MACSTR": %s", MAC2STR(task->mac_addr), esp_err_to_name(err));
+                ESP_LOGE(TAG, "Send message to "MACSTR" failed: %s", MAC2STR(task->mac_addr), esp_err_to_name(err));
             }
         }
         free(task->buffer);
