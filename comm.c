@@ -24,6 +24,8 @@ static QueueHandle_t s_espnow_queue = NULL;
 // Register a new message handler
 static comm_recv_msg_cb_t s_recv_msg_cb;
 
+static comm_send_msg_cb_t s_send_msg_cb;
+
 static CommTask_t* create_task(const uint8_t* buffer, const int64_t buffer_size, const uint8_t* mac_addr, bool is_inbound) 
 {
     CommTask_t* task = malloc(sizeof(CommTask_t));
@@ -55,12 +57,28 @@ void comm_deregister_recv_msg_cb(void)
     s_recv_msg_cb = NULL;
 }
 
+void comm_register_send_msg_cb(comm_send_msg_cb_t cb) 
+{
+    s_send_msg_cb = cb;
+}
+
+void comm_deregister_send_msg_cb(void) 
+{
+    s_send_msg_cb = NULL;
+}
+
 static void espnow_send_cb(const uint8_t *mac_addr, esp_now_send_status_t status) 
 {
     if (status == ESP_NOW_SEND_SUCCESS) {
         ESP_LOGI(TAG, "Send to "MACSTR" succeed: %d", MAC2STR(mac_addr), status);
     } else {
         ESP_LOGE(TAG, "Send to "MACSTR" failed: %d", MAC2STR(mac_addr), status);
+    }
+
+    if (s_send_msg_cb != NULL) {
+        if (s_send_msg_cb(mac_addr, status) != ESP_OK) {
+            ESP_LOGW(TAG, "Send message callback failed");
+        }
     }
 }
 

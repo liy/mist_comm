@@ -73,4 +73,10 @@ void comm_register_recv_msg_cb(comm_recv_msg_cb_t handler);
 
 void comm_deregister_recv_msg_cb(void);
 
+typedef esp_err_t (*comm_send_msg_cb_t)(const uint8_t* mac_addr, esp_now_send_status_t status);
+
+void comm_register_send_msg_cb(comm_send_msg_cb_t handler);
+
+void comm_deregister_send_msg_cb(void);
+
 bool comm_is_peer_exist(const uint8_t *peer_mac_addr);
