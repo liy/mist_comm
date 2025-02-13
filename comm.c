@@ -152,17 +152,6 @@ static esp_err_t init_queue()
         ESP_LOGI(TAG, "ESPNOW queue created");
     }
 
-    /* Initialize ESPNOW and register sending and receiving callback function. */
-    ESP_ERROR_CHECK(esp_now_init());
-    ESP_ERROR_CHECK(esp_now_register_send_cb(espnow_send_cb));
-    ESP_ERROR_CHECK(esp_now_register_recv_cb(espnow_recv_cb));
-#if CONFIG_ESPNOW_ENABLE_POWER_SAVE
-    ESP_ERROR_CHECK(esp_now_set_wake_window(CONFIG_ESPNOW_WAKE_WINDOW));
-    ESP_ERROR_CHECK(esp_wifi_connectionless_module_set_wake_interval(CONFIG_ESPNOW_WAKE_INTERVAL));
-#endif
-    /* Set primary master key. */
-    ESP_ERROR_CHECK(esp_now_set_pmk((uint8_t *)CONFIG_ESPNOW_PMK));
-
     // Start the queue pulling loop
     // Check uxTaskGetStackHighWaterMark to see if the stack size is enough
     xTaskCreate(task_loop, "task_loop", 2400, NULL, 1, NULL);
@@ -192,6 +181,17 @@ esp_err_t comm_broadcast(const uint8_t* buffer, const int64_t buffer_size) {
 }
 
 esp_err_t comm_init() {
+    /* Initialize ESPNOW and register sending and receiving callback function. */
+    ESP_ERROR_CHECK(esp_now_init());
+    ESP_ERROR_CHECK(esp_now_register_send_cb(espnow_send_cb));
+    ESP_ERROR_CHECK(esp_now_register_recv_cb(espnow_recv_cb));
+#if CONFIG_ESPNOW_ENABLE_POWER_SAVE
+    ESP_ERROR_CHECK(esp_now_set_wake_window(CONFIG_ESPNOW_WAKE_WINDOW));
+    ESP_ERROR_CHECK(esp_wifi_connectionless_module_set_wake_interval(CONFIG_ESPNOW_WAKE_INTERVAL));
+#endif
+    /* Set primary master key. */
+    ESP_ERROR_CHECK(esp_now_set_pmk((uint8_t *)CONFIG_ESPNOW_PMK));
+
     if(init_queue() != ESP_OK) {
         return ESP_FAIL;
     }
@@ -219,8 +219,14 @@ esp_err_t comm_add_peer(const uint8_t *peer_mac_addr, bool encrypt) {
         return ESP_FAIL;
     }
     memset(peer, 0, sizeof(esp_now_peer_info_t));
-    peer->channel = CONFIG_ESPNOW_CHANNEL;
-    peer->ifidx = ESPNOW_WIFI_IF;
+    // Most of the time both master and the sensor will send data via STA interface,
+    // Master will be using AP + STA (AP because of wifi provisioning which could be turned off after the provisioning), 
+    // whereas sensor using STA(lower power consumption) interface.
+    // This code is shared by master and sensor, so explicitly set to STA interface is a good choice.
+    // Otherwise, a wifi interface and esp now peer interface mismatch, error ESP_ERR_ESPNOW_IF will 
+    // be thrown when doing esp_now_send(); or sender and receiver wifi interface mismatch causing other issues.
+    // In short, always use STA for data communication between master and sensor.
+    peer->ifidx = ESP_IF_WIFI_STA;
     // Data encryption configuration
     peer->encrypt = encrypt;
     memcpy(peer->peer_addr, peer_mac_addr, ESP_NOW_ETH_ALEN);
