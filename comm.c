@@ -154,7 +154,7 @@ static esp_err_t init_queue()
 
     // Start the queue pulling loop
     // Check uxTaskGetStackHighWaterMark to see if the stack size is enough
-    xTaskCreate(task_loop, "task_loop", 2400, NULL, 1, NULL);
+    xTaskCreate(task_loop, "task_loop", 2500, NULL, 1, NULL);
 
     return ESP_OK;
 }
