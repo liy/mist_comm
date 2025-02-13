@@ -4,7 +4,7 @@
 
 // Broadcast MAC address
 static const uint8_t COMM_BROADCAST_MAC_ADDR[ESP_NOW_ETH_ALEN] = { 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF };
-#define COMM_IS_BROADCAST_ADDR(addr) (memcmp(addr, BROADCAST_MAC_ADDR, ESP_NOW_ETH_ALEN) == 0)
+#define COMM_IS_BROADCAST_ADDR(addr) (memcmp(addr, COMM_BROADCAST_MAC_ADDR, ESP_NOW_ETH_ALEN) == 0)
 
 typedef struct {
     bool is_inbound;
